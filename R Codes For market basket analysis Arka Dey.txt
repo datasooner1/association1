@@ -1,0 +1,192 @@
+#Implementing Market Basket Analysis using Apriori Algorithm
+
+#read transactions
+setwd('C://Users//arkad//Desktop//Freelancer//Sheikh Imran//Market basket')
+
+df <- read.csv("AprioriTransactionsReduced.csv")
+str(df)
+
+# sort
+df_sorted <- df[order(df$Invoice),]
+head(df_sorted)
+tail(df_sorted)
+
+#convert Invoice to numeric
+df_sorted$Invoice <- as.numeric(df_sorted$Invoice)
+class(df_sorted$Invoice)
+
+#convert Item to categorical format
+
+df_sorted$Item <- as.factor(df_sorted$Item)
+class(df_sorted$Item)
+str(df_sorted)
+
+#we have to convert dataframe to transaction format using ddply 
+#group all the items that were bought together; by the same customer on the same date
+library(plyr)
+df_itemList <- ddply(df,'Invoice', function(df1)paste(df1$Item,collapse = ","))
+head(df_itemList)
+
+#remove Invoice
+df_itemList$Invoice <- NULL
+head(df_itemList)
+
+# renaming the column
+colnames(df_itemList) <- c("Item List")
+head(df_itemList)
+
+#write to csv format
+write.csv(df_itemList,"ItemList.csv", quote = FALSE, row.names = TRUE)
+
+### association rule mining algorithm : apriori
+
+#load package required
+library(arules)
+
+#convert csv file to basket format
+txn = read.transactions(file="ItemList.csv", rm.duplicates= FALSE, format="basket",sep=",",cols=1);
+inspect(txn)
+
+#remove quotes from transactions
+txn@itemInfo$labels <- gsub("\"","",txn@itemInfo$labels)
+
+
+#run apriori algorithm
+basket_rules1 <- apriori(txn,parameter = list(sup = 0.001, conf = 0.8, target="rules"))
+basket_rules2 <- apriori(txn,parameter = list(sup = 0.01, conf = 0.25, target="rules"))
+
+
+#view rules
+inspect(basket_rules1)
+summary(basket_rules1)
+
+inspect(basket_rules2)
+summary(basket_rules2)
+
+#convert to dataframe and view
+df_basket1 <- as(basket_rules1,"data.frame")
+head(df_basket1)
+tail(df_basket1)
+
+df_basket1$confidence <- df_basket1$confidence * 100
+df_basket1$support <- df_basket1$support * nrow(df)
+head(df_basket1)
+tail(df_basket1)
+
+df_basket2 <- as(basket_rules2,"data.frame")
+head(df_basket2)
+tail(df_basket2)
+
+df_basket2$confidence <- df_basket2$confidence * 100
+df_basket2$support <- df_basket2$support * nrow(df)
+head(df_basket2)
+tail(df_basket2)
+
+
+# Mining rules for recommendations:
+
+# split lhs and rhs into two columns
+library(reshape2)
+df_basket_split1 <- transform(df_basket1, rules = colsplit(rules, pattern = " => ", names = c("lhs","rhs")))
+head(df_basket_split1)
+tail(df_basket_split1)
+
+df_basket_split2 <- transform(df_basket2, rules = colsplit(rules, pattern = " => ", names = c("lhs","rhs")))
+head(df_basket_split2)
+tail(df_basket_split2)
+
+# Remove curly brackets around rules
+df_basket_split1$rules$lhs <- gsub("\\{|\\}", "", df_basket_split1$rules$lhs)
+df_basket_split1$rules$rhs <- gsub("\\{|\\}", "", df_basket_split1$rules$rhs)
+head(df_basket_split1)
+tail(df_basket_split1)
+
+df_basket_split2$rules$lhs <- gsub("\\{|\\}", "", df_basket_split2$rules$lhs)
+df_basket_split2$rules$rhs <- gsub("\\{|\\}", "", df_basket_split2$rules$rhs)
+head(df_basket_split2)
+tail(df_basket_split2)
+
+# convert to character
+df_basket_split1$rules$lhs <- as.character(df_basket_split1$rules$lhs)
+df_basket_split1$rules$rhs <- as.character(df_basket_split1$rules$rhs)
+head(df_basket_split1)
+tail(df_basket_split1)
+str(df_basket_split1)
+
+df_basket_split2$rules$lhs <- as.character(df_basket_split2$rules$lhs)
+df_basket_split2$rules$rhs <- as.character(df_basket_split2$rules$rhs)
+head(df_basket_split2)
+tail(df_basket_split2)
+str(df_basket_split2)
+
+
+# creating a copy
+df_basket_output1 <- df_basket_split1
+head(df_basket_output1)
+str(df_basket_output1)
+nrow(df_basket_output1)
+
+df_basket_output2 <- df_basket_split2
+head(df_basket_output2)
+str(df_basket_output2)
+nrow(df_basket_output2)
+
+# changing the variable heads for rules
+str(df_basket_output1$rules)
+colnames(df_basket_output1$rules)<- c("Lhs","Rhs")
+head(df_basket_output1$rules)
+str(df_basket_output1$rules)
+
+str(df_basket_output2$rules)
+colnames(df_basket_output2$rules)<- c("Lhs","Rhs")
+head(df_basket_output2$rules)
+str(df_basket_output2$rules)
+
+
+# creating the final output
+output1 <- data.frame(Lhs=character(nrow(df_basket_output1)),
+Rhs=character(nrow(df_basket_output1)),
+Support=double(nrow(df_basket_output1)),
+Confidence=double(nrow(df_basket_output1)),
+Lift=double(nrow(df_basket_output1)),
+Count=double(nrow(df_basket_output1)),stringsAsFactors=FALSE) 
+str(output1)
+
+output1$Lhs <- df_basket_output1$rules$Lhs
+output1$Rhs <- df_basket_output1$rules$Rhs
+output1$Support <- df_basket_output1$support
+output1$Confidence <- df_basket_output1$confidence
+output1$Lift <- df_basket_output1$lift
+output1$Count <- df_basket_output1$count
+str(output1)
+
+head(output1)
+tail(output1)
+
+#write to csv format
+write.csv(output1,"Output1.csv")
+
+output2 <- data.frame(Lhs=character(nrow(df_basket_output2)),
+Rhs=character(nrow(df_basket_output2)),
+Support=double(nrow(df_basket_output2)),
+Confidence=double(nrow(df_basket_output2)),
+Lift=double(nrow(df_basket_output2)),
+Count=double(nrow(df_basket_output2)),stringsAsFactors=FALSE) 
+str(output2)
+
+output2$Lhs <- df_basket_output2$rules$Lhs
+output2$Rhs <- df_basket_output2$rules$Rhs
+output2$Support <- df_basket_output2$support
+output2$Confidence <- df_basket_output2$confidence
+output2$Lift <- df_basket_output2$lift
+output2$Count <- df_basket_output2$count
+str(output2)
+
+head(output2)
+tail(output2)
+
+#write to csv format
+write.csv(output2,"Output2.csv")
+
+# Done
+###############################################################################
