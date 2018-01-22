@@ -1,7 +1,7 @@
 #Implementing Market Basket Analysis using Apriori Algorithm
 
 #read transactions
-setwd('C://Users//arkad//Desktop//Freelancer//Sheikh Imran//Market basket')
+setwd('C://Users...')
 
 df <- read.csv("AprioriTransactionsReduced.csv")
 str(df)
